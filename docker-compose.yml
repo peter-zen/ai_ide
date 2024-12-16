@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  c3v_npu:
+    image: c3v_npu
+    container_name: c3v_npu
+        #    environment:
+      - DISPLAY=${DISPLAY}
+        #    volumes:
+        #      - /tmp/.X11-unix:/tmp/.X11-unix
+        #      - /dev/shm:/dev/shm
+        #    devices:
+        #      - /dev/dri
+    privileged: true
+    stdin_open: true  # equivalent to -i
+    tty: true        # equivalent to -t
