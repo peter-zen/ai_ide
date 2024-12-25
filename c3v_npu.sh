@@ -35,7 +35,8 @@ if [ ! -z "$MODEL_PATH" ]; then
         echo "Error: Model path '$MODEL_PATH' does not exist or is not a directory"
         exit 1
     fi
-    VOLUME_MOUNT="-v $MODEL_PATH:/npu/model_convert"
+    VOLUME_MOUNT="-v $MODEL_PATH:/home/c3v/model_converter/models/${MODEL_PATH##*/}"
+    echo "VOLUME_MOUNT=$VOLUME_MOUNT"
 fi
 
 # Check if container exists
@@ -61,4 +62,4 @@ docker run -it \
     --name c3v_npu \
     --privileged \
     $VOLUME_MOUNT \
-    c3v_npu:${TAG}
+    zengping2024/c3v_npu:${TAG}
