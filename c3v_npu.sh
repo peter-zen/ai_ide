@@ -4,6 +4,57 @@
 TAG="latest"
 MODEL_PATH=""
 FORCE=false
+IP_ADDR=""
+
+# Function to get network configuration
+get_network_config() {
+    # Get default route interface
+    DEFAULT_IFACE=$(ip route | grep default | awk '{print $5}' | head -n1)
+    if [ -z "$DEFAULT_IFACE" ]; then
+        echo "Error: Could not determine default network interface" >&2
+        exit 1
+    fi
+
+    # Get IP and subnet
+    IP_INFO=$(ip -f inet addr show $DEFAULT_IFACE | grep inet)
+    if [ -z "$IP_INFO" ]; then
+        echo "Error: Could not get IP information for interface $DEFAULT_IFACE" >&2
+        exit 1
+    fi
+
+    # Extract network information
+    IP_ADDR=$(echo "$IP_INFO" | awk '{print $2}' | cut -d/ -f1)
+    SUBNET_MASK=$(echo "$IP_INFO" | awk '{print $2}' | cut -d/ -f2)
+    NETWORK_ADDR=$(ipcalc -n "$IP_ADDR/$SUBNET_MASK" | grep Network | awk '{print $2}')
+    GATEWAY=$(ip route | grep default | awk '{print $3}' | head -n1)
+
+    # Export variables for use by other functions
+    export DEFAULT_IFACE
+    export NETWORK_ADDR
+    export GATEWAY
+}
+
+# Function to check and create IPvlan network
+check_create_network() {
+    if ! docker network ls | grep -q "c3v_network"; then
+        echo "Creating c3v_network (IPvlan)..."
+        # Get network configuration
+        get_network_config
+        if [ -z "$NETWORK_ADDR" ] || [ -z "$GATEWAY" ] || [ -z "$DEFAULT_IFACE" ]; then
+            echo "Error: Could not determine network configuration" >&2
+            exit 1
+        fi
+
+        docker network create -d ipvlan \
+            --subnet=$NETWORK_ADDR \
+            --gateway=$GATEWAY \
+            -o ipvlan_mode=l2 \
+            -o parent=$DEFAULT_IFACE \
+            c3v_network
+    else
+        echo "c3v_network already exists"
+    fi
+}
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -20,9 +71,13 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
+        --ip)
+            IP_ADDR="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown parameter: $1"
-            echo "Usage: $0 [-t|--tag <tag>] [-m|--model-path <path>] [-f|--force]"
+            echo "Usage: $0 [-t|--tag <tag>] [-m|--model-path <path>] [-f|--force] [--ip <ip-address>]"
             exit 1
             ;;
     esac
@@ -56,10 +111,15 @@ if docker ps -a --format '{{.Names}}' | grep -q "^c3v_npu$"; then
     fi
 fi
 
+# Check and create network if needed
+check_create_network
+
 # Run docker container
 echo "Starting new container..."
 docker run -it \
     --name c3v_npu \
     --privileged \
+    --network c3v_network \
+    ${IP_ADDR:+--ip $IP_ADDR} \
     $VOLUME_MOUNT \
-    zengping2024/c3v_npu:${TAG}
+    c3v_npu:${TAG}

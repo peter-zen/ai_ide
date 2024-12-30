@@ -10,14 +10,16 @@ RUN apt-get update && apt-get install -y \
     sudo \
     wget \
     make \
+    vim \
+    iproute2 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r c3v && \
     useradd -m -g c3v c3v && \
     echo "c3v ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
-    mkdir -p /npu/npu_install /npu/ide&& \
-    chown -R c3v:c3v /npu
+    mkdir -p /npu/npu_install /npu/ide /home/c3v/model_converter && \
+    chown -R c3v:c3v /npu /home/c3v
 
 COPY --chown=c3v:c3v ./res/install/* /npu/npu_install/
 COPY --chown=c3v:c3v ./res/ide/cmdtools /npu/ide/cmdtools
@@ -47,7 +49,7 @@ ENV CONDA_DEFAULT_ENV=npu_6.33.7
 ENV PATH=/opt/conda/envs/npu_6.33.7/acuity_command_line_tools:$PATH
 ENV cmdtools=/npu/ide/cmdtools
 
-COPY ./res/model_converter /home/c3v/model_converter
+COPY --chown=c3v:c3v ./res/model_converter /home/c3v/model_converter
 WORKDIR /home/c3v/model_converter
 
 RUN echo "conda activate npu_6.33.7" >> ~/.bashrc

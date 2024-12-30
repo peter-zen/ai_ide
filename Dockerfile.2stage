@@ -1,0 +1,83 @@
+# Stage 1: Build conda environment and install Acuity toolkit
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list
+
+# Install minimal packages needed for conda installation
+RUN apt-get update && apt-get install -y \
+    wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directories and copy installation files
+RUN mkdir -p /npu/npu_install
+COPY ./res/install/* /npu/npu_install/
+
+# Install Miniconda and setup environment
+RUN bash /npu/npu_install/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
+    rm /npu/npu_install/Miniconda3-latest-Linux-x86_64.sh
+
+ENV PATH=/opt/conda/bin:$PATH
+
+# Create conda environment and install Acuity toolkit
+RUN conda create -n npu_6.33.7 python=3.8.10 -y
+
+SHELL ["conda", "run", "-n", "npu_6.33.7", "/bin/bash", "-c"]
+RUN cd /npu/npu_install && \
+    tar -zxvf Vivante_acuity_toolkit_whl_6.33.7_python3.8.10.tgz && \
+    cd acuity-toolkit-whl-6.33.7 && \
+    pip install -r requirements.txt && \
+    cd bin && \
+    pip install acuity-6.33.7-cp38-cp38-manylinux2010_x86_64.whl && \
+    pip cache purge
+
+# Stage 2: Create final image
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    gcc \
+    sudo \
+    make \
+    vim \
+    iproute2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create user and setup permissions
+RUN groupadd -r c3v && \
+    useradd -m -g c3v c3v && \
+    echo "c3v ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    mkdir -p /npu/ide /home/c3v/model_converter && \
+    chown -R c3v:c3v /npu /home/c3v
+
+# Copy conda environment from builder stage
+COPY --from=builder /opt/conda /opt/conda
+RUN chown -R c3v:c3v /opt/conda
+
+# Copy IDE tools and model converter
+COPY --chown=c3v:c3v ./res/ide/cmdtools /npu/ide/cmdtools
+COPY --chown=c3v:c3v ./res/model_converter /home/c3v/model_converter
+
+# Setup environment variables
+ENV PATH=/opt/conda/bin:$PATH
+ENV CONDA_DEFAULT_ENV=npu_6.33.7
+ENV PATH=/opt/conda/envs/npu_6.33.7/acuity_command_line_tools:$PATH
+ENV cmdtools=/npu/ide/cmdtools
+
+# Switch to c3v user and setup conda activation
+USER c3v
+RUN echo '. /opt/conda/etc/profile.d/conda.sh' >> ~/.bashrc && \
+    echo "conda activate npu_6.33.7" >> ~/.bashrc
+
+WORKDIR /home/c3v/model_converter
+
+CMD ["bash"]

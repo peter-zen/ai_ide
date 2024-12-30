@@ -18,5 +18,5 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "Building zengping2024/c3v_npu:${TAG} from Dockerfile.no_ide..."
-docker build -t zengping2024/c3v_npu:${TAG} -f Dockerfile.no_ide .
+echo "Building c3v_npu:${TAG} from Dockerfile.no_ide..."
+docker build -t c3v_npu:${TAG} -f Dockerfile.no_ide .
