@@ -12,6 +12,11 @@ RUN apt-get update && apt-get install -y \
     make \
     vim \
     iproute2 \
+    openssh-client \
+    openssh-server \
+    libgl1 \
+    zip \
+    samba \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,6 +28,8 @@ RUN groupadd -r c3v && \
 
 COPY --chown=c3v:c3v ./res/install/* /npu/npu_install/
 COPY --chown=c3v:c3v ./res/ide/cmdtools /npu/ide/cmdtools
+COPY --chown=c3v:c3v ./res/arm-gnu-toolchain-12.3.rel1-x86_64-aarch64-none-linux-gnu /npu/arm-gnu-toolchain-12.3.rel1-x86_64-aarch64-none-linux-gnu
+COPY --chown=c3v:c3v ./res/vip9000sdk-6.4.18.5 /npu/vip9000sdk-6.4.18.5
 
 RUN bash /npu/npu_install/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
     chown -R c3v:c3v /opt/conda && \
@@ -41,6 +48,7 @@ RUN cd /npu/npu_install && \
     pip install -r requirements.txt && \
     cd bin && \
     pip install acuity-6.33.7-cp38-cp38-manylinux2010_x86_64.whl && \
+    pip install tqdm opencv-python && \
     cd /home/c3v && \
     rm -rf /npu/npu_install && \
     pip cache purge
@@ -54,4 +62,5 @@ WORKDIR /home/c3v/model_converter
 
 RUN echo "conda activate npu_6.33.7" >> ~/.bashrc
 
-CMD ["bash"]
+
+CMD ["/usr/sbin/sshd", "-D"]

@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     dbus-x11 \
     x11-utils \
     x11-apps \
+    libgl1 \
+    zip \
     gcc \
     sudo \
     && apt-get clean \
@@ -47,6 +49,7 @@ RUN cd /npu/npu_install && \
     tar -zxvf Vivante_acuity_toolkit_whl_6.30.7_python3.8.10.tgz && \
     cd acuity-toolkit-whl-6.30.7 && \
     pip install -r requirements.txt && \
+    pip install tqdm opencv-python && \
     cd bin && \
     pip install acuity-6.30.7-cp38-cp38-manylinux2010_x86_64.whl
 
